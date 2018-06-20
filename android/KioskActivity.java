@@ -28,24 +28,32 @@ public class KioskActivity extends CordovaActivity {
 
     private static final String PREF_KIOSK_MODE = "pref_kiosk_mode";
     private static final int REQUEST_CODE = 123467;
+    private static final int CAMERA_REQUEST_CODE = 202020;
     public static boolean running = false;
     Object statusBarService;
     ActivityManager am;
     String TAG = "KioskActivity";
+    private static final String LOG = "INFO";
+    CustomViewGroup view;
 
     protected void onStart() {
         super.onStart();
+        Log.d(LOG, "onStart");
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
-        if(Build.VERSION.SDK_INT >= 23) {
-            sp.edit().putBoolean(PREF_KIOSK_MODE, false).commit();
-            checkDrawOverlayPermission();
-        } else {
-            sp.edit().putBoolean(PREF_KIOSK_MODE, true).commit();
-            addOverlay();
-        }
         running = true;
+        // if (Build.VERSION.SDK_INT >= 23) {
+            // sp.edit().putBoolean(PREF_KIOSK_MODE, false).commit();
+            // checkDrawOverlayPermission();
+        // } else {
+            sp.edit().putBoolean(PREF_KIOSK_MODE, true).commit();
+            checkDrawOverlayPermission();
+            addOverlay();
+            // checkCameraPermission();
+        // }
+        
     }
-    //http://stackoverflow.com/questions/7569937/unable-to-add-window-android-view-viewrootw44da9bc0-permission-denied-for-t
+
+    // http://stackoverflow.com/questions/7569937/unable-to-add-window-android-view-viewrootw44da9bc0-permission-denied-for-t
     @TargetApi(Build.VERSION_CODES.M)
     public void checkDrawOverlayPermission() {
         if (!Settings.canDrawOverlays(this.getApplicationContext())) {
@@ -55,9 +63,14 @@ public class KioskActivity extends CordovaActivity {
         }
     }
 
+    // public void checkCameraPermission() {
+    //     Intent intent = new Intent(Settings.CAMERA, Uri.parse("package:" + getPackageName()));
+    //     startActivityForResult(intent, CAMERA_REQUEST_CODE);
+    // }
+
     @TargetApi(Build.VERSION_CODES.M)
     @Override
-    protected void onActivityResult(int requestCode, int resultCode,  Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE) {
             SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
             sp.edit().putBoolean(PREF_KIOSK_MODE, true).commit();
@@ -66,55 +79,62 @@ public class KioskActivity extends CordovaActivity {
             }
         }
     }
-    //http://stackoverflow.com/questions/25284233/prevent-status-bar-for-appearing-android-modified?answertab=active#tab-top
+
+    // http://stackoverflow.com/questions/25284233/prevent-status-bar-for-appearing-android-modified?answertab=active#tab-top
     public void addOverlay() {
-        WindowManager manager = ((WindowManager) getApplicationContext()
-                .getSystemService(Context.WINDOW_SERVICE));
+        Log.d(LOG, "addOverlay: " + running);        
+
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
+        WindowManager manager = ((WindowManager) getApplicationContext().getSystemService(Context.WINDOW_SERVICE));
 
         WindowManager.LayoutParams localLayoutParams = new WindowManager.LayoutParams();
         localLayoutParams.type = WindowManager.LayoutParams.TYPE_SYSTEM_ERROR;
         localLayoutParams.gravity = Gravity.TOP;
-        localLayoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
+        localLayoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
 
-                // this is to enable the notification to recieve touch events
+        // this is to enable the notification to recieve touch events
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
 
                 // Draws over status bar
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 
         localLayoutParams.width = WindowManager.LayoutParams.MATCH_PARENT;
-        localLayoutParams.height = (int) (50 * getResources()
-                .getDisplayMetrics().scaledDensity);
-        localLayoutParams.format = PixelFormat.TRANSPARENT;
-
-        CustomViewGroup view = new CustomViewGroup(this);
+        if (running) {
+            localLayoutParams.height = (int) (50 * getResources().getDisplayMetrics().scaledDensity);
+        } else { 
+            localLayoutParams.height = (int) (0 * getResources().getDisplayMetrics().scaledDensity);
+            manager.removeView(view);
+        }
+            localLayoutParams.format = PixelFormat.TRANSPARENT;
+        Log.d(LOG, "addOverlay: " + localLayoutParams.height);   
+        view = new CustomViewGroup(this);
 
         manager.addView(view, localLayoutParams);
     }
 
     protected void onStop() {
         super.onStop();
+        Log.d(LOG, "onStop");  
         running = false;
+        addOverlay();
     }
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         super.init();
         loadUrl(launchUrl);
+        // addOverlay();
     }
 
-    private void collapseNotifications()
-    {
-        try
-        {
-            if(statusBarService == null) {
+    private void collapseNotifications() {
+        try {
+            if (statusBarService == null) {
                 statusBarService = getSystemService("statusbar");
             }
 
             Class<?> statusBarManager = Class.forName("android.app.StatusBarManager");
 
-            if (Build.VERSION.SDK_INT <= 16)
-            {
+            if (Build.VERSION.SDK_INT <= 16) {
                 Method collapseStatusBar = statusBarManager.getMethod("collapse");
                 collapseStatusBar.setAccessible(true);
                 collapseStatusBar.invoke(statusBarService);
@@ -123,23 +143,20 @@ public class KioskActivity extends CordovaActivity {
             Method collapseStatusBar = statusBarManager.getMethod("collapsePanels");
             collapseStatusBar.setAccessible(true);
             collapseStatusBar.invoke(statusBarService);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
     }
 
-    public void onPause()
-    {
+    public void onPause() {
         super.onPause();
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
         sp.edit().putBoolean(PREF_KIOSK_MODE, true).commit();
-        if(!sp.getBoolean(PREF_KIOSK_MODE, false)) {
+        if (!sp.getBoolean(PREF_KIOSK_MODE, false)) {
             return;
         }
-        if(am == null) {
-            am = ((ActivityManager)getSystemService("activity"));
+        if (am == null) {
+            am = ((ActivityManager) getSystemService("activity"));
         }
         am.moveTaskToFront(getTaskId(), 1);
         sendBroadcast(new Intent("android.intent.action.CLOSE_SYSTEM_DIALOGS"));
@@ -151,12 +168,12 @@ public class KioskActivity extends CordovaActivity {
         super.onWindowFocusChanged(hasFocus);
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
         sp.edit().putBoolean(PREF_KIOSK_MODE, true).commit();
-        if(!sp.getBoolean(PREF_KIOSK_MODE, false)) {
+        if (!sp.getBoolean(PREF_KIOSK_MODE, false)) {
             return;
         }
         if (!hasFocus) {
-            if(am == null) {
-                am = ((ActivityManager)getSystemService("activity"));
+            if (am == null) {
+                am = ((ActivityManager) getSystemService("activity"));
             }
             am.moveTaskToFront(getTaskId(), 1);
             sendBroadcast(new Intent("android.intent.action.CLOSE_SYSTEM_DIALOGS"));
@@ -164,7 +181,7 @@ public class KioskActivity extends CordovaActivity {
         }
     }
 
-    //http://stackoverflow.com/questions/25284233/prevent-status-bar-for-appearing-android-modified?answertab=active#tab-top
+    // http://stackoverflow.com/questions/25284233/prevent-status-bar-for-appearing-android-modified?answertab=active#tab-top
     public class CustomViewGroup extends ViewGroup {
 
         public CustomViewGroup(Context context) {
@@ -181,4 +198,3 @@ public class KioskActivity extends CordovaActivity {
         }
     }
 }
-

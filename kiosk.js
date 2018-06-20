@@ -13,6 +13,10 @@ var KioskPlugin = {
         }, function(error){
             alert("KioskPlugin.isInKiosk failed: "+error);
         }, "KioskPlugin", "isInKiosk", []);
+    },
+
+    exitKioskForLogin: function() {
+        exec(null, null, "KioskPlugin", "exitForLogin", []);
     }
     
 }

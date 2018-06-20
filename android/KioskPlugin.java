@@ -12,6 +12,7 @@ import android.view.KeyEvent;
 import android.view.ViewGroup.LayoutParams;
 import java.util.Timer;
 import java.util.TimerTask;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import jk.cordova.plugin.kiosk.KioskActivity;
@@ -26,6 +27,8 @@ public class KioskPlugin extends CordovaPlugin {
     public static final String IS_IN_KIOSK = "isInKiosk";
 
     private static final String PREF_KIOSK_MODE = "pref_kiosk_mode";
+
+    private static final String EXIT_KIOSK_FOR_LOGIN = "exitForLogin";
 
     
     @Override
@@ -50,6 +53,15 @@ public class KioskPlugin extends CordovaPlugin {
                 
                 callbackContext.success();
                 return true;
+            } else if (EXIT_KIOSK_FOR_LOGIN.equals(action)) {
+                Intent intent = new Intent(Intent.ACTION_MAIN);
+                intent.addCategory(Intent.CATEGORY_HOME);
+                
+                // SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+                // sp.edit().putBoolean(PREF_KIOSK_MODE, false).commit();
+
+                KioskActivity.running = false;
+                return true;
             }
             callbackContext.error("Invalid action");
             return false;
@@ -60,4 +72,3 @@ public class KioskPlugin extends CordovaPlugin {
         }
     }
 }
-
